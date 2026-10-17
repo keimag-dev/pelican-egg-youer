@@ -1,0 +1,18 @@
+{
+  "MINECRAFT_VERSION": "1.21.1",
+  "YOUER_BUILD": "920",
+  "SERVER_JARFILE": "server.jar",
+  "SERVER_NAME": "Youer QA",
+  "MOTD": "Youer isolated QA",
+  "MAX_PLAYERS": "20",
+  "GAMEMODE": "survival",
+  "DIFFICULTY": "normal",
+  "ONLINE_MODE": "true",
+  "WHITELIST": "false",
+  "VIEW_DISTANCE": "4",
+  "LEVEL_NAME": "world",
+  "HEAP_MB": "4096",
+  "NATIVE_HEADROOM_MB": "1024",
+  "UNLIMITED_HEAP_MB": "4096",
+  "SERVER_MEMORY": "6144"
+}
