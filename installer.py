@@ -67,6 +67,7 @@ DEFAULTS = {
     "GAMEMODE": "survival", "DIFFICULTY": "normal", "ONLINE_MODE": "true",
     "WHITELIST": "false", "VIEW_DISTANCE": "10", "LEVEL_NAME": "world",
     "HEAP_MB": "0", "NATIVE_HEADROOM_MB": "1024", "UNLIMITED_HEAP_MB": "4096",
+    "INITIAL_HEAP_MB": "128", "GC_MODE": "default", "EXTRA_JVM_ARGS": "",
 }
 
 
@@ -81,18 +82,23 @@ def parse_config(env):
         "GAMEMODE": r"survival|creative|adventure|spectator",
         "DIFFICULTY": r"peaceful|easy|normal|hard",
         "ONLINE_MODE": r"true|false", "WHITELIST": r"true|false",
+        "GC_MODE": r"default|g1|zgc|zgc-generational|parallel|serial",
     }
     for key, pattern in patterns.items():
         if not re.fullmatch(pattern, cfg[key]):
             raise ValueError(f"Invalid {key}: does not match {pattern}")
     ranges = {"MAX_PLAYERS": (1, 10000), "VIEW_DISTANCE": (2, 32),
               "HEAP_MB": (0, 1048576), "NATIVE_HEADROOM_MB": (256, 1048576),
-              "UNLIMITED_HEAP_MB": (512, 1048576)}
+              "UNLIMITED_HEAP_MB": (512, 1048576), "INITIAL_HEAP_MB": (16, 1048576)}
     for key, (low, high) in ranges.items():
         if not re.fullmatch(r"0|[1-9][0-9]{0,6}", cfg[key]) or not low <= int(cfg[key]) <= high:
             raise ValueError(f"Invalid {key}: expected integer {low}..{high} without leading zeros")
     if 0 < int(cfg["HEAP_MB"]) < 512:
         raise ValueError("Invalid HEAP_MB: use 0 (automatic) or at least 512 MiB")
+    # Full argv policy and allocation-dependent heap checks run at every start in Bash.
+    extra = cfg["EXTRA_JVM_ARGS"]
+    if len(extra) > 4096 or any(ord(c) < 32 or ord(c) == 127 for c in extra):
+        raise ValueError("Invalid EXTRA_JVM_ARGS: at most 4096 characters, no control characters")
     for key in ("SERVER_NAME", "MOTD"):
         if not 1 <= len(cfg[key]) <= 256 or any(ord(c) < 32 or ord(c) == 127 for c in cfg[key]):
             raise ValueError(f"Invalid {key}: expected 1..256 printable characters, no line breaks")

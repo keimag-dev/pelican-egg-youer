@@ -1,5 +1,9 @@
 # Verification / handoff
 
+## v1.1.0 JVM tuning
+
+**44 tests passed with real Java21, no skips**, including actual collector/heap/property/stdin/exit checks through the Bash wrapper in all six GC modes. CI requires Java21 rather than silently skipping that probe; native ARM64/x64 × Python3.11/3.13 run the same suite. See [JVM-VERIFICATION.md](JVM-VERIFICATION.md). The earlier full-game results below remain historical v1.0.x payload evidence, not new GC performance measurements.
+
 Publication integration: the standalone repository adds stable-identity and publication guards; **27 local tests passed** (including exact embedded upstream-logo bytes). GitHub's first main-branch CI also passed all four native ARM64/x64 × Python 3.11/3.13 jobs. Real ARM64 game install/start/console/save/normal-stop/SIGTERM/restart/reinstall-preservation and post-reinstall restart passed; see [INTEGRATION.md](INTEGRATION.md) for exact payload hashes and limitations. The older worker-only notes below are retained as provenance, not the current integration status.
 
 ## Local automated result

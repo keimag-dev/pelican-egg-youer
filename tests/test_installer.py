@@ -51,6 +51,24 @@ class ConfigTests(unittest.TestCase):
         self.assertIn(r"motd=\u65e5\u672c\u8a9e = test\\nnext", text)
         self.assertNotIn("eula=true", text)
 
+    def test_jvm_start_fields_have_validated_install_defaults_without_logging_extra_values(self):
+        cfg = installer.parse_config({})
+        self.assertEqual({key: cfg[key] for key in ("INITIAL_HEAP_MB", "GC_MODE", "EXTRA_JVM_ARGS")},
+                         {"INITIAL_HEAP_MB": "128", "GC_MODE": "default", "EXTRA_JVM_ARGS": ""})
+        for key, value in (("INITIAL_HEAP_MB", "15"), ("INITIAL_HEAP_MB", "1048577"),
+                           ("INITIAL_HEAP_MB", "0128"), ("GC_MODE", "shenandoah"),
+                           ("EXTRA_JVM_ARGS", "-Dsecret=do-not-log\n"),
+                           ("EXTRA_JVM_ARGS", "-Dsecret=do-not-log\x00"),
+                           ("EXTRA_JVM_ARGS", "-Dsecret=" + "x" * 4096)):
+            with self.subTest(key=key, length=len(value)):
+                with self.assertRaises(ValueError) as error:
+                    installer.parse_config({key: value})
+                self.assertIn(key, str(error.exception))
+                self.assertNotIn("do-not-log", str(error.exception))
+        self.assertEqual(installer.parse_config({"INITIAL_HEAP_MB": "16", "GC_MODE": "zgc-generational",
+                                                "EXTRA_JVM_ARGS": "-Dmessage='hello world'"})["GC_MODE"],
+                         "zgc-generational")
+
     def test_properties_preserve_leading_spaces_as_literal_content(self):
         text = installer.properties_text(installer.parse_config({"MOTD": "  padded"}))
         self.assertIn("motd=\\ \\ padded\n", text)

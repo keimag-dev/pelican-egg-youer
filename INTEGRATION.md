@@ -1,5 +1,7 @@
 # Observed integration / 実機で確認した範囲
 
+**Scope note:** The full-game observations and payload hashes below describe the earlier v1.0.x runtime. The v1.1.0 JVM-tuning update has separate actual Java21 probe coverage in [JVM-VERIFICATION.md](JVM-VERIFICATION.md); no fresh Minecraft/collector performance or mod-compatibility claim is made for that update.
+
 Linux ARM64 / Java 21 / Youer **1.21.1 build 920** / NeoForge 21.1.252で、既存サーバーと分離した新規Dockerコンテナ・ディレクトリを使用。実ゲーム、実ダウンロード、非root UID1001で検証した。ホストへのポート公開はしていない。以下はモックやテスト用JARの結果ではない。
 
 ## Passed

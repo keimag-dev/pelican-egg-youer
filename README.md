@@ -41,7 +41,10 @@ Java 21 / Minecraft 1.21.1 用の汎用 Youer Egg。NeoForge と Paper/Purpur AP
 | Whitelist Enabled / `WHITELIST` | `false` | `true`, `false`。identity を追加しません | F |
 | View Distance / `VIEW_DISTANCE` | `10` | 2–32 integer | F |
 | World Name / `LEVEL_NAME` | `world` | 英数字開始、英数字・`_ -`、最大64文字 | F |
-| Java Heap (MiB) / `HEAP_MB` | `0` | `0` = automatic、または512–1048576 integer | S |
+| Maximum Java Heap -Xmx (MiB) / `HEAP_MB` | `0` | `0` = automatic、または512–1048576 integer。既存の変数名・上限計算を維持 | S |
+| Initial Java Heap -Xms (MiB) / `INITIAL_HEAP_MB` | `128` | 16–1048576 integer、かつ計算後の最大 heap 以下 | S |
+| Garbage Collector / `GC_MODE` | `default` | `default`, `g1`, `zgc`, `zgc-generational`, `parallel`, `serial` | S |
+| Extra JVM Arguments / `EXTRA_JVM_ARGS` | 空 | 最大4096文字。下記の grouping・許可オプション規則に従う JVM 引数 | S |
 | Native Memory Headroom (MiB) / `NATIVE_HEADROOM_MB` | `1024` | 256–1048576 integer | S |
 | Unlimited Allocation Heap (MiB) / `UNLIMITED_HEAP_MB` | `4096` | 512–1048576 integer | S |
 
@@ -53,8 +56,43 @@ Pelican `config.files` は **毎回 start 時に** `server-ip` を空にし、`s
 
 - `SERVER_MEMORY > 0`: heap auto = allocation − native headroom。明示 heap もこの上限内でなければ **起動を拒否**。利用可能 heap が512 MiB 未満でも拒否します。
 - `SERVER_MEMORY=0`（unlimited）: auto heap は `UNLIMITED_HEAP_MB`、明示 heap は `HEAP_MB`。無制限の `-Xmx` は作りません。
-- 初期 heap は128 MiB。6144 MiB allocation と1024 MiB reserveなら `-Xmx5120M`。reserve は native memory の保証・制限ではなく、負荷に応じた調整が必要です。host RAM / container limit は別に確保します。
-- arbitrary JVM flags や direct download URL は意図的に公開しません。shell expansion / eval / checksum を回避した不明な JAR の取得を許しません。
+- 初期 heap は `INITIAL_HEAP_MB`（既定128 MiB）。計算後の `-Xmx` を超える `-Xms` は起動前に拒否します。6144 MiB allocation と1024 MiB reserveなら `-Xmx5120M`。reserve は native memory の保証・制限ではなく、負荷に応じた調整が必要です。host RAM / container limit は別に確保します。
+- 新変数がない既存環境でも `-Xms128M`、従来の `-Xmx` 計算、追加 GC flag なし・追加 JVM 引数なしを維持します。direct download URL は公開しません。checksum を回避した不明な JAR の取得は許しません。
+
+### JVM tuning / ランチャー風の JVM 引数
+
+`-Xmx` は **Maximum Java Heap / `HEAP_MB`**、`-Xms` は **Initial Java Heap / `INITIAL_HEAP_MB`** で設定します。追加引数に同じ値を重複して書くのではなく、専用フィールドを使用してください。設定変更は次回 restart から有効です。既存 Egg を更新した場合は、停止・バックアップ後に reinstall して管理対象の `.youer/start.sh` も更新してください（world・既存設定は保護されます）。
+
+`GC_MODE=default` を推奨します。これは GC flag を追加せず、JVM 自身の選択を維持します。変更時の対応は以下のとおりです。
+
+| `GC_MODE` | Java 21 flags |
+|---|---|
+| `default` | 追加なし（JVM ergonomics） |
+| `g1` | `-XX:+UseG1GC` |
+| `zgc` | `-XX:+UseZGC` |
+| `zgc-generational` | `-XX:+UseZGC -XX:+ZGenerational` |
+| `parallel` | `-XX:+UseParallelGC` |
+| `serial` | `-XX:+UseSerialGC` |
+
+GC の変更は高速化・低遅延・mod 互換性を保証しません。特に `zgc-generational` は Java 21 用の選択肢です。すべての JDK に含まれるとは限らない Shenandoah は選択肢に含めません。まず既定値で測定し、変更後もメモリ・停止時間・CPU を確認してください。
+
+**Extra JVM Arguments** は空白区切りです。UI には外側の shell 代入なしで、例えば次の値を入力します。
+
+```text
+-XX:MaxGCPauseMillis=200 -Dmessage='hello world' --add-opens=java.base/java.lang=ALL-UNNAMED
+```
+
+例: allocation 6144 MiB / reserve 1024 MiB のまま、`HEAP_MB=4096`、`INITIAL_HEAP_MB=256`、`GC_MODE=g1` とすれば `-Xms256M -Xmx4096M` と G1 flag を使用します。上の追加引数は個別の argv として `-jar server.jar nogui` の前に渡します。これは設定例であり推奨チューニング一式ではありません。
+
+- 許可する追加引数は `-D<property>[=<value>]`、`-XX:<flag>`、`-X...` の tuning family、および `--add-opens=...` / `--add-exports=...` / `--add-reads=...` / `--enable-native-access=...` の **単一引数 equals 形式**です。JDK が知らない flag や不適切な組み合わせは JVM がエラー終了します。無視する設定を追加しません。
+- ASCII space のみ区切り文字です。single / double quote は grouping に使い、quote 自体は除去します。single quote 内は backslash も literal。single quote 外（double quote 内も含む）では backslash が次の1文字を escape します。例: `-Dmessage=hello\ world`、`-Dmessage="say \"hello\""`、`-Dpath='C:\mods\test'`。隣接する quoted / unquoted 部分は同一引数になります。
+- `$()` / backtick / `$VAR` / wildcard / `;` / `|` / redirect は shell として評価せず、値の一部ならそのまま渡します。コマンドや複数行の startup script は入力できません。未閉鎖 quote、末尾 backslash、制御文字（改行・tab・DEL 等）、4096文字超は **Java 起動前に拒否**。NUL は OS の環境変数で表現できません。
+- `-Xmx` / `-Xms` と `-XX:MaxHeapSize` / `InitialHeapSize` / `MinHeapSize` は禁止し、専用 heap フィールドへ案内します。`-XX:SoftMaxHeapSize=...` は任意の soft target として渡せますが、hard `-Xmx` を引き上げるものではなく、値・collector との整合性は JVM が検証します。
+- GC selection / negation（`-XX:+Use...GC` / `-XX:-Use...GC` / `ZGenerational` 等）は `GC_MODE` に集約します。bare main class、`-jar`、classpath / module / main selector、help / version / exit-only flag、`@argfile`、`-XX:Flags=...` / `-XX:VMOptionsFile=...` による別 option file も禁止です。許可 family 外の入力は黙って無視せず、エラーにします。
+- `JAVA_TOOL_OPTIONS` / `JDK_JAVA_OPTIONS` / `_JAVA_OPTIONS` が非空なら、hidden override を防ぐため起動を拒否します。自動 unset はしません。管理者が注入元を修正し、必要な tuning を Egg の専用フィールド・追加引数へ移してください。
+- wrapper は追加引数の生値をログに出しません。ただし JVM 自身の診断、mods、process argv、user-viewable な Panel field は秘密の保管先ではありません。
+
+この検証は **argv の安全な組み立てと heap / GC 設定の一貫性**のためであり、信頼できるサーバー所有者に対する sandbox ではありません。JAR / mods / JVM options 自体がコードを実行したりファイルを書いたりできることは変わりません。runtime は引き続き Bash + Java のみで、Python・`eval`・入力を shell code として読み込む処理は不要です。
 
 ## Reinstall / upgrade の安全性
 
@@ -76,7 +114,7 @@ Pelican `config.files` は **毎回 start 時に** `server-ip` を空にし、`s
 
 ## Build / test
 
-Python 3.11+ standard library と Bash があれば実行できます。pip 不要。
+Python 3.11+ standard library と Bash があれば実行できます。pip 不要。実 JVM probe は Java 21 と `javac`（`--release 21`対応）が必要です。CI は Java 21 を用意して必須実行します。ローカルの Java が別 major の場合は probe のみ skip するので、完全検証には `JAVA21_HOME` を Java 21 の home に設定し `REQUIRE_REAL_JAVA=1` で実行してください。[JVM-VERIFICATION.md](JVM-VERIFICATION.md) に検証範囲を記載しています。
 
 ```sh
 python -W error -m unittest discover -s tests -v
