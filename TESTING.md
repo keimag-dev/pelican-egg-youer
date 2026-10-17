@@ -1,5 +1,7 @@
 # Verification / handoff
 
+Publication integration: the standalone repository adds stable-identity and publication guards; **26 local tests passed**. GitHub's first main-branch CI also passed all four native ARM64/x64 × Python 3.11/3.13 jobs. Real ARM64 game install/start/console/save/normal-stop/SIGTERM/restart/reinstall-preservation and post-reinstall restart passed; see [INTEGRATION.md](INTEGRATION.md) for exact payload hashes and limitations. The older worker-only notes below are retained as provenance, not the current integration status.
+
 ## Local automated result
 
 ```sh
